@@ -18,7 +18,7 @@ function requireEnv(name: string, fallback?: string): string {
 
 export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:4200',
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   jwt: {
     secret: requireEnv('JWT_SECRET', 'dev_secret_change_me'),
     expiresIn: process.env.JWT_EXPIRES_IN || '30m',
