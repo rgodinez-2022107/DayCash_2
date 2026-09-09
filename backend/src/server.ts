@@ -5,6 +5,7 @@ import { config } from './config/env';
 import authRoutes from './routes/auth.routes';
 import dataRoutes from './routes/data.routes';
 import { testConnection } from './db/pool';
+import { ensureDatabase, applySchema } from './db/setup';
 import { ensureAdminExists } from './repositories/usuario.repository';
 import * as usuarioRepo from './repositories/usuario.repository';
 import * as metaRepo from './repositories/meta.repository';
@@ -46,16 +47,20 @@ app.use((_req: Request, res: Response) => {
 
 async function startServer(): Promise<void> {
   try {
-    // 1. Verificamos que PostgreSQL esté disponible
+    // 1. Creamos la base de datos si no existe y aplicamos el esquema
+    await ensureDatabase();
+    await applySchema();
+
+    // 2. Verificamos que PostgreSQL esté disponible
     const version = await testConnection();
     console.log(`Conexión a PostgreSQL exitosa. Versión: ${version}`);
 
-    // 2. Aseguramos que exista el usuario administrador
+    // 3. Aseguramos que exista el usuario administrador
     const passwordHash = bcrypt.hashSync(config.admin.password, 10);
     await ensureAdminExists(config.admin.email, passwordHash);
     console.log(`Usuario administrador garantizado: ${config.admin.email}`);
 
-    // 3. Arrancamos Express
+    // 4. Arrancamos Express
     app.listen(config.port, () => {
       console.log(`Servidor backend corriendo en http://localhost:${config.port}`);
     });

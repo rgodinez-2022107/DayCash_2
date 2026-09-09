@@ -1,6 +1,6 @@
 -- ============================================================
 -- Esquema de base de datos para DayCash (PostgreSQL)
--- Crear la base primero: CREATE DATABASE daycash_db;
+-- Se aplica automáticamente al arrancar el servidor (IF NOT EXISTS).
 -- ============================================================
 
 -- Usuario único del sistema (será el usuario 'admin')
