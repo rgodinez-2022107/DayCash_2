@@ -3,7 +3,8 @@ import { pool } from '../db/pool';
 export interface UsuarioRow {
   id: number;
   email: string;
-  password_hash: string;
+  password_hash: string | null;
+  google_id: string | null;
   fixed_income: string;
   variable_hours: string;
   variable_rate: string;
@@ -15,10 +16,53 @@ export interface UsuarioRow {
  */
 export async function findByEmail(email: string): Promise<UsuarioRow | null> {
   const { rows } = await pool.query<UsuarioRow>(
-    'SELECT id, email, password_hash, fixed_income, variable_hours, variable_rate FROM usuarios WHERE email = $1',
+    'SELECT id, email, password_hash, google_id, fixed_income, variable_hours, variable_rate FROM usuarios WHERE email = $1',
     [email]
   );
   return rows[0] ?? null;
+}
+
+/**
+ * Busca un usuario por su google_id. Devuelve null si no existe.
+ */
+export async function findByGoogleId(googleId: string): Promise<UsuarioRow | null> {
+  const { rows } = await pool.query<UsuarioRow>(
+    'SELECT id, email, password_hash, google_id, fixed_income, variable_hours, variable_rate FROM usuarios WHERE google_id = $1',
+    [googleId]
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Crea un usuario a partir de un inicio de sesión con Google.
+ * Si ya existe con ese google_id lo devuelve; si el correo ya existe
+ * (sin google_id) le asocia el google_id; si no existe, lo crea.
+ */
+export async function findOrCreateByGoogle(
+  googleId: string,
+  email: string
+): Promise<UsuarioRow> {
+  const existingForGoogle = await findByGoogleId(googleId);
+  if (existingForGoogle) return existingForGoogle;
+
+  const existingForEmail = await findByEmail(email);
+  if (existingForEmail) {
+    const { rows } = await pool.query<UsuarioRow>(
+      `UPDATE usuarios SET google_id = $2
+       WHERE id = $1
+       RETURNING id, email, password_hash, google_id, fixed_income, variable_hours, variable_rate`,
+      [existingForEmail.id, googleId]
+    );
+    return rows[0];
+  }
+
+  const { rows } = await pool.query<UsuarioRow>(
+    `INSERT INTO usuarios (email, google_id, password_hash)
+     VALUES ($2, $1, NULL)
+     RETURNING id, email, password_hash, google_id, fixed_income, variable_hours, variable_rate`,
+    [googleId, email]
+  );
+  return rows[0];
 }
 
 /**

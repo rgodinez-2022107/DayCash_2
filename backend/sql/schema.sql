@@ -7,7 +7,8 @@
 CREATE TABLE IF NOT EXISTS usuarios (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255),
+  google_id VARCHAR(255) UNIQUE,
   fixed_income NUMERIC(12,2) NOT NULL DEFAULT 15000,
   variable_hours NUMERIC(12,2) NOT NULL DEFAULT 0,
   variable_rate NUMERIC(12,2) NOT NULL DEFAULT 100,

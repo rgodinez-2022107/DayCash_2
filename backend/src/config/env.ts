@@ -25,9 +25,12 @@ export const config = {
     user: requireEnv('PGUSER', 'postgres'),
     password: requireEnv('PGPASSWORD', ''),
   },
-  jwt: {
+jwt: {
     secret: requireEnv('JWT_SECRET', 'dev_secret_change_me'),
     expiresIn: process.env.JWT_EXPIRES_IN || '30m',
+  },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
   },
   admin: {
     email: requireEnv('ADMIN_EMAIL', 'admin@financeapp.com'),

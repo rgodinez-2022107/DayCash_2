@@ -70,6 +70,19 @@
       </button>
     </form>
 
+    <!-- Separador -->
+    <div class="social-divider">
+      <span>o continúa con</span>
+    </div>
+
+    <!-- Google Sign-In -->
+    <div class="google-btn-container">
+      <div id="google-button" class="google-button-placeholder"></div>
+      <div id="google-signin-error" class="server-error" *ngIf="googleErrorMessage">
+        {{ googleErrorMessage }}
+      </div>
+    </div>
+
     <p class="footer-note">Acceso restringido a personal autorizado.</p>
   </div>
 </div>
