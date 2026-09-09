@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
+import { findByEmail } from '../repositories/usuario.repository';
 
 interface LoginBody {
   email?: string;
@@ -10,9 +11,9 @@ interface LoginBody {
 
 /**
  * POST /api/auth/login
- * Valida las credenciales contra el único usuario del sistema
- * (definido en variables de entorno) y devuelve un JWT si son correctas.
- * No existe endpoint de registro: el usuario ya existe de forma fija.
+ * Valida las credenciales contra el usuario almacenado en PostgreSQL
+ * y devuelve un JWT si son correctas. No existe endpoint de registro:
+ * el usuario administrador se crea automáticamente al iniciar el servidor.
  */
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body as LoginBody;
@@ -25,10 +26,8 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const isEmailValid = email.trim().toLowerCase() === config.admin.email.toLowerCase();
-  const isPasswordValid = await bcrypt.compare(password, config.admin.passwordHash);
-
-  if (!isEmailValid || !isPasswordValid) {
+  const usuario = await findByEmail(email.trim().toLowerCase());
+  if (!usuario) {
     res.status(401).json({
       success: false,
       message: 'Credenciales inválidas.',
@@ -36,7 +35,16 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const token = jwt.sign({ email: config.admin.email }, config.jwt.secret, {
+  const isPasswordValid = await bcrypt.compare(password, usuario.password_hash);
+  if (!isPasswordValid) {
+    res.status(401).json({
+      success: false,
+      message: 'Credenciales inválidas.',
+    });
+    return;
+  }
+
+  const token = jwt.sign({ email: usuario.email }, config.jwt.secret, {
     expiresIn: config.jwt.expiresIn,
   } as jwt.SignOptions);
 
@@ -45,7 +53,8 @@ export async function login(req: Request, res: Response): Promise<void> {
     message: 'Inicio de sesión exitoso.',
     token,
     user: {
-      email: config.admin.email,
+      email: usuario.email,
+      userId: usuario.id,
     },
   });
 }
