@@ -8,7 +8,13 @@
     "build": "tsc",
     "start": "node dist/server.js"
   },
-  "keywords": ["jwt", "auth", "express", "typescript", "fintech"],
+  "keywords": [
+    "jwt",
+    "auth",
+    "express",
+    "typescript",
+    "fintech"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -16,7 +22,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -24,6 +31,7 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.9",
+    "@types/pg": "^8.23.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.3"
   }
