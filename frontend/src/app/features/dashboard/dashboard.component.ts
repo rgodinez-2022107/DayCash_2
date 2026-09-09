@@ -1,4 +1,4 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -13,7 +13,7 @@ import { GoalsSettingsComponent } from '../../shared/goals-settings/goals-settin
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   userEmail: string | null;
   userName: string = 'Usuario';
 
@@ -30,6 +30,11 @@ export class DashboardComponent {
     if (this.userEmail) {
       this.userName = this.userEmail.split('@')[0];
     }
+  }
+
+  ngOnInit(): void {
+    // Carga los datos (metas, categorías, transacciones e ingresos) desde PostgreSQL
+    this.income.loadFromApi();
   }
 
   @HostListener('window:mousemove', ['$event'])

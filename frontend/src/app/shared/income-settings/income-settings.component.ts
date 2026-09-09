@@ -19,10 +19,14 @@ export class IncomeSettingsComponent {
     const total = this.income.monthlyTotal;
     const note = this.income.incomeNote().trim();
     this.income.addIncomeTransaction(total, note);
+    // Guarda también los campos de ingreso fijo/variable en la BD
+    this.income.saveUserConfig();
     this.onClose();
   }
 
   onClose(): void {
+    // Persistir los cambios de ingreso aunque no se registre una transacción
+    this.income.saveUserConfig();
     this.close.emit();
   }
 }
