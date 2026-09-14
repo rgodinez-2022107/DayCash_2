@@ -16,6 +16,63 @@ interface GoogleLoginBody {
 
 const googleClient = new OAuth2Client(config.google.clientId);
 
+/** Firma un JWT de la aplicación con la vigencia configurada (.env). */
+function signToken(email: string): string {
+  return jwt.sign({ email }, config.jwt.secret, {
+    expiresIn: config.jwt.expiresIn,
+  } as jwt.SignOptions);
+}
+
+/**
+ * POST /api/auth/refresh
+ * Renueva el JWT actual por uno nuevo con la misma vigencia.
+ * Permite la sesión "deslizante": mientras haya interacción (y el token
+ * aún no haya expirado), el cliente puede extender la sesión sin volver
+ * a iniciar sesión.
+ */
+export async function refresh(req: Request, res: Response): Promise<void> {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined;
+
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      message: 'Token no proporcionado.',
+    });
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret) as { email: string };
+    const usuario = await findByEmail(decoded.email);
+    if (!usuario) {
+      res.status(401).json({
+        success: false,
+        message: 'Usuario no encontrado.',
+      });
+      return;
+    }
+
+    const newToken = signToken(usuario.email);
+    res.status(200).json({
+      success: true,
+      message: 'Sesión renovada.',
+      token: newToken,
+      user: {
+        email: usuario.email,
+        userId: usuario.id,
+        name: usuario.nombre,
+        picture: usuario.foto,
+      },
+    });
+  } catch {
+    res.status(401).json({
+      success: false,
+      message: 'Token inválido o expirado.',
+    });
+  }
+}
+
 /**
  * POST /api/auth/login
  * Valida las credenciales contra el usuario almacenado en PostgreSQL
@@ -51,9 +108,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const token = jwt.sign({ email: usuario.email }, config.jwt.secret, {
-    expiresIn: config.jwt.expiresIn,
-  } as jwt.SignOptions);
+  const token = signToken(usuario.email);
 
   res.status(200).json({
     success: true,
@@ -62,6 +117,8 @@ export async function login(req: Request, res: Response): Promise<void> {
     user: {
       email: usuario.email,
       userId: usuario.id,
+      name: usuario.nombre,
+      picture: usuario.foto,
     },
   });
 }
@@ -118,11 +175,14 @@ export async function googleLogin(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const usuario = await findOrCreateByGoogle(payload.sub, payload.email);
+    const usuario = await findOrCreateByGoogle(
+      payload.sub,
+      payload.email,
+      payload.name,
+      payload.picture
+    );
 
-    const token = jwt.sign({ email: usuario.email }, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
-    } as jwt.SignOptions);
+    const token = signToken(usuario.email);
 
     res.status(200).json({
       success: true,
@@ -131,6 +191,8 @@ export async function googleLogin(req: Request, res: Response): Promise<void> {
       user: {
         email: usuario.email,
         userId: usuario.id,
+        name: usuario.nombre,
+        picture: usuario.foto,
       },
     });
   } catch (error) {

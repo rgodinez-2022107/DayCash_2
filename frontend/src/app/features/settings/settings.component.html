@@ -1,0 +1,196 @@
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <span class="section-tag">CONFIGURACIÓN</span>
+      <h1>Ajustes</h1>
+      <p class="page-subtitle">Perfil, preferencias y administración de tus datos.</p>
+    </div>
+  </div>
+
+  <div class="settings-grid">
+    <div class="settings-main">
+      <!-- Perfil de Google -->
+      <section class="settings-card">
+        <h3>Perfil de Google</h3>
+        <div class="profile-row" *ngIf="user">
+          <div class="avatar">
+            <img *ngIf="user.picture && user.picture !== 'null'" [src]="user.picture" alt="Foto de perfil" />
+            <span *ngIf="!user.picture || user.picture === 'null'">{{ firstInitial }}</span>
+          </div>
+
+          <div class="profile-info" *ngIf="!editingName">
+            <strong class="profile-name">{{ user.name || 'Sin nombre' }}</strong>
+            <span class="profile-email">
+              {{ user.email }}
+              <i class="google-badge">G</i>
+            </span>
+          </div>
+
+          <div class="profile-info" *ngIf="editingName">
+            <input
+              class="text-input name-input"
+              [(ngModel)]="draftName"
+              name="displayName"
+              placeholder="Tu nombre"
+              (keyup.enter)="saveName()"
+            />
+          </div>
+
+          <div class="profile-actions">
+            <ng-container *ngIf="!editingName">
+              <button class="ghost-btn" (click)="startEditName()">✏ Editar nombre</button>
+            </ng-container>
+            <ng-container *ngIf="editingName">
+              <button class="ghost-btn primary" (click)="saveName()">Guardar</button>
+              <button class="ghost-btn" (click)="cancelEditName()">Cancelar</button>
+            </ng-container>
+          </div>
+        </div>
+        <p class="card-hint">
+          Tu foto y correo provienen de tu cuenta de Google. La sesión de la aplicación no está vinculada a tu cuenta
+          de Google Cloud.
+        </p>
+      </section>
+
+      <!-- Preferencias -->
+      <section class="settings-card">
+        <h3>Preferencias</h3>
+
+        <div class="setting-item">
+          <div class="setting-text">
+            <strong>Aparencia</strong>
+            <span>Elige el tema de la aplicación.</span>
+          </div>
+          <div class="theme-toggle">
+            <button [class.active]="prefs.theme === 'dark'" (click)="setTheme('dark')">🌙 Oscuro</button>
+            <button [class.active]="prefs.theme === 'light'" (click)="setTheme('light')">☀ Claro</button>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-text">
+            <strong>Notificaciones</strong>
+            <span>Recordatorios de la aplicación (actividad reciente).</span>
+          </div>
+          <div class="switch-wrap">
+            <label class="switch">
+              <input
+                type="checkbox"
+                [checked]="prefs.notificationsEnabled"
+                (change)="onNotificationsChange($event)"
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-text">
+            <strong>Alertas de gastos hormiga</strong>
+            <span>Te avisamos cuando un gasto es menor o igual al umbral.</span>
+          </div>
+          <div class="switch-wrap">
+            <label class="switch">
+              <input
+                type="checkbox"
+                [checked]="prefs.antSpendingAlerts"
+                (change)="onAntAlertsChange($event)"
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-text">
+            <strong>Umbral de gasto hormiga</strong>
+            <span>Importe máximo (Q) para considerar un gasto como hormiga.</span>
+          </div>
+          <div class="input-group">
+            <span class="input-prefix">Q</span>
+            <input
+              class="money-input"
+              type="number"
+              [ngModel]="prefs.antThreshold"
+              name="threshold"
+              min="0"
+              step="5"
+              (ngModelChange)="onThresholdChange($event)"
+            />
+          </div>
+        </div>
+
+        <div class="setting-item static">
+          <div class="setting-text">
+            <strong>Moneda</strong>
+            <span>Quetzales guatemaltecos (GTQ).</span>
+          </div>
+          <span class="currency-chip">GTQ 🇬🇹</span>
+        </div>
+      </section>
+
+      <!-- Estado del servidor -->
+      <section class="settings-card">
+        <h3>Servidor</h3>
+        <div class="setting-item static">
+          <div class="setting-text">
+            <strong>Backend API</strong>
+            <span>{{ environment.apiUrl }}</span>
+          </div>
+          <div class="server-status">
+            <span class="status-dot" [class.online]="serverStatus === 'online'" [class.offline]="serverStatus === 'offline'"></span>
+            <span class="status-label">
+              {{ serverStatus === 'online' ? 'En línea' : serverStatus === 'offline' ? 'Sin conexión' : 'Verificando...' }}
+            </span>
+            <button class="ghost-btn" (click)="checkServer()">Reintentar</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="settings-side">
+      <!-- Tus datos -->
+      <section class="settings-card">
+        <h3>Tus datos</h3>
+        <div class="data-actions">
+          <button class="action-btn" (click)="exportCsv()" [disabled]="!allTxns.length">
+            <span class="action-icon">⬇</span>
+            <span class="action-text">
+              <strong>Exportar CSV</strong>
+              <small>Historial completo para Excel</small>
+            </span>
+          </button>
+          <button class="action-btn" (click)="printReport()" [disabled]="!allTxns.length">
+            <span class="action-icon">🖨</span>
+            <span class="action-text">
+              <strong>Reporte PDF</strong>
+              <small>Resumen imprimible y guardable</small>
+            </span>
+          </button>
+          <button class="action-btn danger" (click)="resetLocalData()">
+            <span class="action-icon">↺</span>
+            <span class="action-text">
+              <strong>Restablecer datos locales</strong>
+              <small>Preferencias e ingresos predefinidos</small>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Acerca de -->
+      <section class="settings-card">
+        <h3>Acerca de</h3>
+        <ul class="about-list">
+          <li><span>Versión</span><strong>1.0.0</strong></li>
+          <li><span>Moneda</span><strong>GTQ</strong></li>
+          <li><span>Stack</span><strong>Angular + Node</strong></li>
+          <li><span>Modo</span><strong>Localhost</strong></li>
+        </ul>
+        <p class="card-hint">
+          DayCash corre por defecto en <code>http://localhost:4200</code> con su API en
+          <code>http://localhost:3000</code>.
+        </p>
+      </section>
+    </div>
+  </div>
+</div>

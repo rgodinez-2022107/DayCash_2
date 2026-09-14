@@ -201,3 +201,49 @@ export async function deleteTransaccion(req: Request, res: Response): Promise<vo
   }
   res.json({ success: true, message: 'Transacción eliminada.' });
 }
+
+// ===== Egresos (gastos) =====
+export async function getEgresos(req: Request, res: Response): Promise<void> {
+  const userId = requireUser(req);
+  if (userId === null) {
+    res.status(401).json({ success: false, message: 'No autenticado.' });
+    return;
+  }
+  res.json({ success: true, data: await req.app.locals.egresoRepo.findAllByUser(userId) });
+}
+
+export async function createEgreso(req: Request, res: Response): Promise<void> {
+  const userId = requireUser(req);
+  if (userId === null) {
+    res.status(401).json({ success: false, message: 'No autenticado.' });
+    return;
+  }
+  const { monto, categoria, metodo_pago, etiqueta, nota, fecha } = req.body ?? {};
+  if (monto === undefined || !categoria || !metodo_pago) {
+    res.status(400).json({ success: false, message: 'Debe proporcionar monto, categoría y método de pago.' });
+    return;
+  }
+  const egreso = await req.app.locals.egresoRepo.createForUser(userId, {
+    monto: Number(monto),
+    categoria,
+    metodo_pago,
+    etiqueta: etiqueta ?? null,
+    nota: nota ?? null,
+    fecha: fecha ?? new Date().toISOString().slice(0, 10),
+  });
+  res.status(201).json({ success: true, data: egreso });
+}
+
+export async function deleteEgreso(req: Request, res: Response): Promise<void> {
+  const userId = requireUser(req);
+  if (userId === null) {
+    res.status(401).json({ success: false, message: 'No autenticado.' });
+    return;
+  }
+  const deleted = await req.app.locals.egresoRepo.removeForUser(userId, Number(req.params.id));
+  if (!deleted) {
+    res.status(404).json({ success: false, message: 'Egreso no encontrado.' });
+    return;
+  }
+  res.json({ success: true, message: 'Egreso eliminado.' });
+}

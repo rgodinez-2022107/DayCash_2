@@ -1,4 +1,4 @@
-import { Component, HostListener, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
@@ -6,7 +6,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 
 import { AuthService } from '../../core/auth/auth.service';
@@ -47,6 +47,7 @@ export class LoginComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
+    private route: ActivatedRoute,
     private ngZone: NgZone
   ) {
     this.loginForm = this.fb.group({
@@ -89,13 +90,22 @@ export class LoginComponent implements OnInit, OnDestroy {
     setTimeout(() => this.renderGoogleButton(), 250);
   }
 
+  private goAfterLogin(): void {
+    this.isLoading = false;
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    if (returnUrl && returnUrl.startsWith('/')) {
+      this.router.navigateByUrl(returnUrl);
+    } else {
+      this.router.navigate(['/dashboard']);
+    }
+  }
+
   private handleGoogleCredential(response: { credential: string }): void {
     this.googleErrorMessage = '';
     this.isLoading = true;
     this.authService.googleLogin(response.credential).subscribe({
       next: () => {
-        this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+        this.goAfterLogin();
       },
       error: (err: HttpErrorResponse) => {
         this.isLoading = false;
@@ -111,14 +121,6 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   get password() {
     return this.loginForm.get('password');
-  }
-
-  @HostListener('window:mousemove', ['$event'])
-  onMouseMove(event: MouseEvent) {
-    const x = event.clientX;
-    const y = event.clientY;
-    document.documentElement.style.setProperty('--mouse-x', `${x}px`);
-    document.documentElement.style.setProperty('--mouse-y', `${y}px`);
   }
 
   togglePasswordVisibility(): void {
@@ -138,8 +140,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
     this.authService.login({ email, password }).subscribe({
       next: () => {
-        this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+        this.goAfterLogin();
       },
       error: (err: HttpErrorResponse) => {
         this.isLoading = false;

@@ -11,6 +11,7 @@ import * as usuarioRepo from './repositories/usuario.repository';
 import * as metaRepo from './repositories/meta.repository';
 import * as categoriaRepo from './repositories/categoria.repository';
 import * as transaccionRepo from './repositories/transaccion.repository';
+import * as egresoRepo from './repositories/egreso.repository';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.locals.usuarioRepo = usuarioRepo;
 app.locals.metaRepo = metaRepo;
 app.locals.categoriaRepo = categoriaRepo;
 app.locals.transaccionRepo = transaccionRepo;
+app.locals.egresoRepo = egresoRepo;
 
 // Health check
 app.get('/api/health', (_req: Request, res: Response) => {

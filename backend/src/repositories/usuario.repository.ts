@@ -5,10 +5,14 @@ export interface UsuarioRow {
   email: string;
   password_hash: string | null;
   google_id: string | null;
+  nombre: string | null;
+  foto: string | null;
   fixed_income: string;
   variable_hours: string;
   variable_rate: string;
 }
+
+const PROFILE_COLUMNS = 'id, email, password_hash, google_id, nombre, foto, fixed_income, variable_hours, variable_rate';
 
 /**
  * Busca un usuario por su correo. Devuelve null si no existe.
@@ -16,7 +20,7 @@ export interface UsuarioRow {
  */
 export async function findByEmail(email: string): Promise<UsuarioRow | null> {
   const { rows } = await pool.query<UsuarioRow>(
-    'SELECT id, email, password_hash, google_id, fixed_income, variable_hours, variable_rate FROM usuarios WHERE email = $1',
+    `SELECT ${PROFILE_COLUMNS} FROM usuarios WHERE email = $1`,
     [email]
   );
   return rows[0] ?? null;
@@ -27,7 +31,7 @@ export async function findByEmail(email: string): Promise<UsuarioRow | null> {
  */
 export async function findByGoogleId(googleId: string): Promise<UsuarioRow | null> {
   const { rows } = await pool.query<UsuarioRow>(
-    'SELECT id, email, password_hash, google_id, fixed_income, variable_hours, variable_rate FROM usuarios WHERE google_id = $1',
+    `SELECT ${PROFILE_COLUMNS} FROM usuarios WHERE google_id = $1`,
     [googleId]
   );
   return rows[0] ?? null;
@@ -37,30 +41,42 @@ export async function findByGoogleId(googleId: string): Promise<UsuarioRow | nul
  * Crea un usuario a partir de un inicio de sesión con Google.
  * Si ya existe con ese google_id lo devuelve; si el correo ya existe
  * (sin google_id) le asocia el google_id; si no existe, lo crea.
+ * Guarda el nombre y la foto de perfil que envía Google.
  */
 export async function findOrCreateByGoogle(
   googleId: string,
-  email: string
+  email: string,
+  nombre?: string | null,
+  foto?: string | null
 ): Promise<UsuarioRow> {
   const existingForGoogle = await findByGoogleId(googleId);
-  if (existingForGoogle) return existingForGoogle;
+  if (existingForGoogle) {
+    // Mantener el perfil actualizado tras cada inicio de sesión
+    const { rows } = await pool.query<UsuarioRow>(
+      `UPDATE usuarios SET nombre = COALESCE($2, nombre), foto = COALESCE($3, foto)
+       WHERE id = $1
+       RETURNING ${PROFILE_COLUMNS}`,
+      [existingForGoogle.id, nombre ?? null, foto ?? null]
+    );
+    return rows[0];
+  }
 
   const existingForEmail = await findByEmail(email);
   if (existingForEmail) {
     const { rows } = await pool.query<UsuarioRow>(
-      `UPDATE usuarios SET google_id = $2
+      `UPDATE usuarios SET google_id = $2, nombre = COALESCE($3, nombre), foto = COALESCE($4, foto)
        WHERE id = $1
-       RETURNING id, email, password_hash, google_id, fixed_income, variable_hours, variable_rate`,
-      [existingForEmail.id, googleId]
+       RETURNING ${PROFILE_COLUMNS}`,
+      [existingForEmail.id, googleId, nombre ?? null, foto ?? null]
     );
     return rows[0];
   }
 
   const { rows } = await pool.query<UsuarioRow>(
-    `INSERT INTO usuarios (email, google_id, password_hash)
-     VALUES ($2, $1, NULL)
-     RETURNING id, email, password_hash, google_id, fixed_income, variable_hours, variable_rate`,
-    [googleId, email]
+    `INSERT INTO usuarios (email, google_id, password_hash, nombre, foto)
+     VALUES ($2, $1, NULL, $3, $4)
+     RETURNING ${PROFILE_COLUMNS}`,
+    [googleId, email, nombre ?? null, foto ?? null]
   );
   return rows[0];
 }
@@ -78,14 +94,17 @@ export async function ensureAdminExists(email: string, passwordHash: string): Pr
   );
 }
 
-/** Devuelve la configuración de ingresos de un usuario (fijo, horas y tarifa). */
+/** Devuelve la configuración de ingresos y perfil de un usuario. */
 export async function findIncomeConfig(usuarioId: number): Promise<{
   fixedIncome: number;
   variableHours: number;
   variableRate: number;
+  email: string;
+  name: string | null;
+  picture: string | null;
 } | null> {
-  const { rows } = await pool.query<{ fixed_income: string; variable_hours: string; variable_rate: string }>(
-    'SELECT fixed_income, variable_hours, variable_rate FROM usuarios WHERE id = $1',
+  const { rows } = await pool.query<{ fixed_income: string; variable_hours: string; variable_rate: string; email: string; nombre: string | null; foto: string | null }>(
+    'SELECT fixed_income, variable_hours, variable_rate, email, nombre, foto FROM usuarios WHERE id = $1',
     [usuarioId]
   );
   if (!rows[0]) return null;
@@ -93,6 +112,9 @@ export async function findIncomeConfig(usuarioId: number): Promise<{
     fixedIncome: Number(rows[0].fixed_income),
     variableHours: Number(rows[0].variable_hours),
     variableRate: Number(rows[0].variable_rate),
+    email: rows[0].email,
+    name: rows[0].nombre,
+    picture: rows[0].foto,
   };
 }
 

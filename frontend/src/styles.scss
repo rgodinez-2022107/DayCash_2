@@ -7,6 +7,32 @@
   --color-white: #ffffff;
   --color-text-muted: #8892b0;
   --color-danger: #e74c3c;
+
+  /* Superficies tematizables (navy por defecto / claro si data-theme=light) */
+  --surface: rgba(17, 34, 64, 0.4);
+  --surface-card: rgba(17, 34, 64, 0.35);
+  --surface-card-strong: rgba(17, 34, 64, 0.92);
+  --surface-input: rgba(17, 34, 64, 0.55);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --text-primary: #ffffff;
+  --text-secondary: #8a9ba8;
+  --bg: #0b192c;
+}
+
+html[data-theme='light'] {
+  --color-navy: #0b192c;
+  --color-navy-light: #ffffff;
+  --color-navy-lighter: #dce4f0;
+  --color-text-muted: #4a5a75;
+
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-card: rgba(255, 255, 255, 0.78);
+  --surface-card-strong: rgba(255, 255, 255, 0.97);
+  --surface-input: rgba(255, 255, 255, 0.9);
+  --border-soft: rgba(11, 25, 44, 0.12);
+  --text-primary: #0b192c;
+  --text-secondary: #4a5a75;
+  --bg: #eef2f9;
 }
 
 * {

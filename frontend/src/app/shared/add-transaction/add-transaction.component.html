@@ -1,0 +1,210 @@
+<div class="modal-overlay" *ngIf="open" (click)="close()">
+  <div class="modal-shell" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <div>
+        <h2 class="modal-title">Agregar Transacción</h2>
+        <span class="modal-subtitle">Registra un ingreso o un egreso; tu balance se actualiza al instante</span>
+      </div>
+      <button class="modal-close" (click)="close()" title="Cerrar">
+        <span>×</span>
+      </button>
+    </header>
+
+    <!-- Selector de tipo -->
+    <div class="type-tabs">
+      <button
+        class="type-tab ingreso"
+        [class.active]="kind === 'ingreso'"
+        (click)="selectKind('ingreso')"
+      >
+        <span>↑</span> Ingreso
+      </button>
+      <button
+        class="type-tab egreso"
+        [class.active]="kind === 'egreso'"
+        (click)="selectKind('egreso')"
+      >
+        <span>↓</span> Egreso
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- ===== FORMULARIO DE INGRESO ===== -->
+      <ng-container *ngIf="kind === 'ingreso'">
+        <div class="settings-block">
+          <label class="block-label" for="fixedIncome">Ingreso Fijo</label>
+          <div class="input-group">
+            <span class="input-prefix">Q</span>
+            <input
+              id="fixedIncome"
+              type="number"
+              class="money-input"
+              [(ngModel)]="income.fixedIncome"
+              name="fixedIncome"
+              min="0"
+              step="100"
+              (ngModelChange)="syncIncomeAmount()"
+            />
+          </div>
+        </div>
+
+        <div class="settings-block">
+          <span class="block-label">Ingreso Variable</span>
+          <div class="variable-grid">
+            <div class="field">
+              <label class="field-label" for="variableHours">Horas trabajadas</label>
+              <input
+                id="variableHours"
+                type="number"
+                class="money-input"
+                [(ngModel)]="income.variableHours"
+                name="variableHours"
+                min="0"
+                step="1"
+                (ngModelChange)="syncIncomeAmount()"
+              />
+            </div>
+            <div class="field">
+              <label class="field-label" for="variableRate">Precio por hora</label>
+              <div class="input-group">
+                <span class="input-prefix">Q</span>
+                <input
+                  id="variableRate"
+                  type="number"
+                  class="money-input"
+                  [(ngModel)]="income.variableRate"
+                  name="variableRate"
+                  min="0"
+                  step="10"
+                  (ngModelChange)="syncIncomeAmount()"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="auto-calc">
+            <span class="tag-auto">Cálculo Automático</span>
+            <div class="calc-value">
+              <span class="calc-label">Subtotal variable</span>
+              <strong>{{ income.formatMoney(income.variableSubtotal) }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-block">
+          <label class="block-label" for="incomeAmount">Monto a registrar</label>
+          <div class="input-group">
+            <span class="input-prefix">Q</span>
+            <input
+              id="incomeAmount"
+              type="number"
+              class="money-input"
+              [(ngModel)]="incomeAmount"
+              name="incomeAmount"
+              min="0"
+              step="100"
+            />
+          </div>
+        </div>
+
+        <div class="settings-block">
+          <label class="block-label" for="incomeNote">Comentario (opcional)</label>
+          <input
+            id="incomeNote"
+            type="text"
+            class="text-input"
+            [(ngModel)]="incomeNote"
+            name="incomeNote"
+            placeholder="Ej: Pago quincenal, horas extra..."
+          />
+        </div>
+
+        <button class="submit-btn" (click)="submit()">
+          + Registrar Ingreso
+        </button>
+      </ng-container>
+
+      <!-- ===== FORMULARIO DE EGRESO ===== -->
+      <ng-container *ngIf="kind === 'egreso'">
+        <div class="settings-block">
+          <label class="block-label" for="expenseAmount">Monto del gasto</label>
+          <div class="input-group">
+            <span class="input-prefix">Q</span>
+            <input
+              id="expenseAmount"
+              type="number"
+              class="money-input"
+              [(ngModel)]="expenseAmount"
+              name="expenseAmount"
+              min="0"
+              step="10"
+            />
+          </div>
+          <p class="balance-hint">
+            Disponible:
+            <strong>{{ income.formatMoney(availableBalance) }}</strong>
+          </p>
+          <p class="insufficient-error" *ngIf="insufficientFunds">
+            No puedes gastar más del dinero que tienes registrado ({{
+              income.formatMoney(availableBalance)
+            }}).
+          </p>
+        </div>
+
+        <div class="settings-block">
+          <label class="block-label" for="category">Categoría</label>
+          <select
+            id="category"
+            class="select-input"
+            [(ngModel)]="selectedCategory"
+            name="category"
+          >
+            <option value="" disabled>Seleccionar categoría</option>
+            <option *ngFor="let c of categories" [value]="c.key">{{ c.label }}</option>
+          </select>
+        </div>
+
+        <div class="settings-block">
+          <label class="block-label" for="paymentMethod">Método de pago</label>
+          <select
+            id="paymentMethod"
+            class="select-input accent"
+            [(ngModel)]="selectedPaymentMethod"
+            name="paymentMethod"
+          >
+            <option value="" disabled>Seleccionar método</option>
+            <option *ngFor="let m of paymentMethods" [value]="m.key">{{ m.label }}</option>
+          </select>
+        </div>
+
+        <div class="settings-block">
+          <label class="block-label" for="label">Etiqueta</label>
+          <select
+            id="label"
+            class="select-input accent"
+            [(ngModel)]="selectedLabel"
+            name="label"
+          >
+            <option value="" disabled>Seleccionar etiqueta</option>
+            <option *ngFor="let l of labels" [value]="l.key">{{ l.label }}</option>
+          </select>
+        </div>
+
+        <div class="settings-block">
+          <label class="block-label" for="expenseNote">Comentario (opcional)</label>
+          <input
+            id="expenseNote"
+            type="text"
+            class="text-input"
+            [(ngModel)]="expenseNote"
+            name="expenseNote"
+            placeholder="Ej: Pago de transporte mensual..."
+          />
+        </div>
+
+        <button class="submit-btn" (click)="submit()">
+          + Registrar Gasto
+        </button>
+      </ng-container>
+    </div>
+  </div>
+</div>

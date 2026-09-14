@@ -26,6 +26,16 @@ export interface IncomeTransaction {
   date: string;
 }
 
+export interface ExpenseTransaction {
+  id?: number;
+  amount: number;
+  category: string;
+  paymentMethod: string;
+  label: string;
+  note: string;
+  date: string;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -50,6 +60,16 @@ interface CategoriaApi {
 interface TransaccionApi {
   id: number;
   monto: string;
+  nota: string | null;
+  fecha: string;
+}
+
+interface EgresoApi {
+  id: number;
+  monto: string;
+  categoria: string;
+  metodo_pago: string;
+  etiqueta: string | null;
   nota: string | null;
   fecha: string;
 }
@@ -105,19 +125,38 @@ export class IncomeService {
   // Historial de transacciones de ingresos registradas (con comentario opcional)
   readonly incomeTransactions = signal<IncomeTransaction[]>([]);
 
+  // Historial de egresos (gastos) registrados
+  readonly expenseTransactions = signal<ExpenseTransaction[]>([]);
+
+  // Perfil del usuario cargado desde la API (email, nombre y foto)
+  readonly profile = signal<{ email: string; name: string | null; picture: string | null } | null>(null);
+
   // Evita crear dos metas de ahorro/emergencia si se escribe rápido antes del response
   private creatingGoal: 'savingsGoal' | 'emergencyGoal' | null = null;
+
+  // Una sola carga en vuelo compartida: el shell y el dashboard llaman a
+  // loadFromApi() casi al mismo tiempo y no debe duplicarse la petición.
+  private loadPromise: Promise<void> | null = null;
 
   constructor(private http: HttpClient) {}
 
   // ===== Carga inicial desde PostgreSQL (vía la API) =====
   async loadFromApi(): Promise<void> {
+    if (this.loadPromise) return this.loadPromise;
+    this.loadPromise = this.doLoad().finally(() => {
+      this.loadPromise = null;
+    });
+    return this.loadPromise;
+  }
+
+  private async doLoad(): Promise<void> {
     try {
-      const [metas, categorias, transacciones, usuario] = await Promise.all([
+      const [metas, categorias, transacciones, usuario, egresos] = await Promise.all([
         lastValueFrom(this.http.get<ApiResponse<MetaApi[]>>(`${this.apiUrl}/metas`)),
         lastValueFrom(this.http.get<ApiResponse<CategoriaApi[]>>(`${this.apiUrl}/categorias`)),
         lastValueFrom(this.http.get<ApiResponse<TransaccionApi[]>>(`${this.apiUrl}/transacciones`)),
-        lastValueFrom(this.http.get<ApiResponse<{ fixedIncome: number; variableHours: number; variableRate: number }>>(`${this.apiUrl}/usuario`)),
+        lastValueFrom(this.http.get<ApiResponse<{ fixedIncome: number; variableHours: number; variableRate: number; email: string; name: string | null; picture: string | null }>>(`${this.apiUrl}/usuario`)),
+        lastValueFrom(this.http.get<ApiResponse<EgresoApi[]>>(`${this.apiUrl}/egresos`)),
       ]);
 
       // Metas: separar por tipo
@@ -177,10 +216,28 @@ export class IncomeService {
         }))
       );
 
-      // Config de ingresos del usuario
+      // Egresos
+      this.expenseTransactions.set(
+        egresos.data.map((e) => ({
+          id: e.id,
+          amount: Number(e.monto),
+          category: e.categoria,
+          paymentMethod: e.metodo_pago,
+          label: e.etiqueta ?? '',
+          note: e.nota ?? '',
+          date: e.fecha,
+        }))
+      );
+
+      // Config de ingresos y perfil del usuario
       this.fixedIncome.set(usuario.data.fixedIncome);
       this.variableHours.set(usuario.data.variableHours);
       this.variableRate.set(usuario.data.variableRate);
+      this.profile.set({
+        email: usuario.data.email,
+        name: usuario.data.name,
+        picture: usuario.data.picture,
+      });
     } catch (error) {
       console.error('No se pudo cargar los datos desde el backend:', error);
     }
@@ -415,5 +472,55 @@ export class IncomeService {
       currency: 'GTQ',
       minimumFractionDigits: 2,
     });
+  }
+
+  // Registrar un egreso y agregarlo al historial
+  async addEgreso(amount: number, category: string, paymentMethod: string, label: string, note: string): Promise<void> {
+    const now = new Date();
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const expense: ExpenseTransaction = { amount, category, paymentMethod, label, note, date };
+    this.expenseTransactions.update((list) => [expense, ...list]);
+    try {
+      const res = await lastValueFrom(
+        this.http.post<ApiResponse<EgresoApi>>(`${this.apiUrl}/egresos`, {
+          monto: amount,
+          categoria: category,
+          metodo_pago: paymentMethod,
+          etiqueta: label,
+          nota: note,
+          fecha: date,
+        })
+      );
+      const e = res.data;
+      this.expenseTransactions.update((list) =>
+        list.map((item) => (item === expense ? { ...item, id: e.id } : item))
+      );
+    } catch (error) {
+      console.error('No se pudo guardar el egreso:', error);
+    }
+  }
+
+  // Eliminar un egreso
+  async removeEgreso(index: number): Promise<void> {
+    const current = this.expenseTransactions()[index];
+    this.expenseTransactions.update((list) => list.filter((_, i) => i !== index));
+    if (!current?.id) return;
+    try {
+      await lastValueFrom(this.http.delete(`${this.apiUrl}/egresos/${current.id}`));
+    } catch (error) {
+      console.error('No se pudo eliminar el egreso:', error);
+    }
+  }
+
+  // Eliminar un ingreso del historial
+  async removeIncomeTransaction(index: number): Promise<void> {
+    const current = this.incomeTransactions()[index];
+    this.incomeTransactions.update((list) => list.filter((_, i) => i !== index));
+    if (!current?.id) return;
+    try {
+      await lastValueFrom(this.http.delete(`${this.apiUrl}/transacciones/${current.id}`));
+    } catch (error) {
+      console.error('No se pudo eliminar el ingreso:', error);
+    }
   }
 }

@@ -14,6 +14,9 @@ import {
   getTransacciones,
   createTransaccion,
   deleteTransaccion,
+  getEgresos,
+  createEgreso,
+  deleteEgreso,
 } from '../controllers/data.controller';
 
 const router = Router();
@@ -41,5 +44,10 @@ router.delete('/categorias/:id', deleteCategoria);
 router.get('/transacciones', getTransacciones);
 router.post('/transacciones', createTransaccion);
 router.delete('/transacciones/:id', deleteTransaccion);
+
+// Egresos (gastos)
+router.get('/egresos', getEgresos);
+router.post('/egresos', createEgreso);
+router.delete('/egresos/:id', deleteEgreso);
 
 export default router;
