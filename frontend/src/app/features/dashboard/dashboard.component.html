@@ -1,159 +1,94 @@
-<div class="dashboard-layout">
-  <!-- Fondo con Ondas Fluidas Estilo PS3 -->
-  <div class="ps3-waves-container">
-    <div class="wave wave-one"></div>
-    <div class="wave wave-two"></div>
+<div class="dashboard-container">
+  <div class="welcome-section">
+    <div>
+      <span class="section-tag">RESUMEN GENERAL</span>
+      <h1>Hola, {{ userName }}.</h1>
+      <p class="welcome-sub">Este es tu panorama financiero del mes.</p>
+    </div>
+    <div class="quick-actions">
+      <button class="action-pill income" (click)="openNewIncome()">↑ Nuevo Ingreso</button>
+      <button class="action-pill expense" (click)="openNewExpense()">↓ Nuevo Gasto</button>
+    </div>
   </div>
 
-  <!-- Fondo de Puntos con Animación Flotante e Interactividad -->
-  <div class="interactive-dot-grid"></div>
-  <div class="interactive-dot-glow"></div>
-
-  <!-- Barra Lateral (Sidebar) -->
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <img src="/logo/image.png" alt="Logo DayCash" class="brand-icon" />
-      <div class="brand-text">
-        <h2>DayCash</h2>
-        <span>Premium Finance</span>
+  <!-- Grid Principal de Estadísticas y Actividad -->
+  <div class="grid-stats">
+    <!-- Tarjeta de Balance General -->
+    <div class="card balance-card">
+      <div class="card-header">
+        <span class="card-title">Balance Total</span>
+        <button class="options-btn" (click)="openGoalsSettings()" title="Gestión de metas y fondos">•••</button>
       </div>
-    </div>
-
-    <div class="sidebar-action">
-      <button class="add-transaction-btn" (click)="addTransaction()">
-        <span>+</span> Add Transaction
-      </button>
-    </div>
-
-    <nav class="sidebar-nav">
-      <a routerLink="/dashboard" class="nav-item active">
-        <span class="icon">📊</span> Dashboard
-      </a>
-      <a routerLink="/statistics" class="nav-item">
-        <span class="icon">📈</span> Statistics
-      </a>
-      <a routerLink="/history" class="nav-item">
-        <span class="icon">🕒</span> History
-      </a>
-      <a routerLink="/settings" class="nav-item">
-        <span class="icon">⚙️</span> Settings
-      </a>
-    </nav>
-
-    <div class="sidebar-footer">
-      <div class="user-profile">
-        <div class="avatar">UD</div>
-        <div class="user-info">
-          <span class="name">{{ userName }}</span>
-          <span class="role">Pro Member</span>
-        </div>
-      </div>
-    </div>
-  </aside>
-
-  <!-- Contenido Principal -->
-  <main class="main-content">
-    <!-- Cabecera Superior -->
-    <header class="top-bar">
-      <div class="search-bar">
-        <span class="search-icon">🔍</span>
-        <input type="text" placeholder="Search transactions, insights..." />
-      </div>
-      <div class="top-actions">
-        <button class="icon-btn" title="Notificaciones">🔔</button>
-        <button class="icon-btn logout-action" (click)="logout()" title="Cerrar sesión">🚪</button>
-      </div>
-    </header>
-
-    <!-- Panel Dashboard -->
-    <div class="dashboard-container">
-      <div class="welcome-section">
-        <div>
-          <span class="section-tag">RESUMEN GENERAL</span>
-          <h1>Hola, {{ userName }}.</h1>
-        </div>
-        <div class="quick-actions">
-          <button class="action-pill income" (click)="openIncomeSettings()">↓ Nuevo Ingreso</button>
-          <button class="action-pill expense" (click)="addTransaction()">↑ Nuevo Gasto</button>
-        </div>
+      <div class="balance-body">
+        <h2>{{ income.formatMoney(netBalance) }}</h2>
+        <span class="trend" [class.positive]="netBalance >= 0" [class.negative]="netBalance < 0">
+          {{ netBalance >= 0 ? '▲ Superávit' : '▼ Déficit' }}
+        </span>
       </div>
 
-      <!-- Grid Principal de Estadísticas y Actividad -->
-      <div class="grid-stats">
-        <!-- Tarjeta de Balance General -->
-        <div class="card balance-card">
-          <div class="card-header">
-            <span class="card-title">Balance Total</span>
-            <button class="options-btn" (click)="openGoalsSettings()" title="Gestión de metas y fondos">•••</button>
+      <div class="progress-section">
+        <div class="progress-item">
+          <div class="progress-label">
+            <span>Ingreso Fijo</span>
+            <small>{{ fixedIncomeProgress }}% Completado</small>
           </div>
-          <div class="balance-body">
-            <h2>{{ totalBalance }}</h2>
-            <span class="trend positive">~{{ balanceTrend }}</span>
-          </div>
-
-          <div class="progress-section">
-            <div class="progress-item">
-              <div class="progress-label">
-                <span>Ingreso Fijo</span>
-                <small>{{ fixedIncomeProgress }}% Completado</small>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-fill orange" [style.width.%]="fixedIncomeProgress"></div>
-              </div>
-            </div>
-
-            <div class="progress-item">
-              <div class="progress-label">
-                <span>Ingreso Variable</span>
-                <small>{{ variableIncomeProgress }}% Objetivo</small>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-fill dark-orange" [style.width.%]="variableIncomeProgress"></div>
-              </div>
-            </div>
+          <div class="progress-bar">
+            <div class="progress-fill orange" [style.width.%]="fixedIncomeProgress"></div>
           </div>
         </div>
 
-        <!-- Tarjeta de Actividad Reciente -->
-        <div class="card activity-card">
-          <div class="card-header">
-            <span class="card-title">Actividad</span>
-            <a href="javascript:void(0)" class="view-all">Ver todo</a>
+        <div class="progress-item">
+          <div class="progress-label">
+            <span>Ingreso Variable</span>
+            <small>{{ variableIncomeProgress }}% Objetivo</small>
           </div>
-          <div class="activity-list">
-            <div class="activity-empty" *ngIf="income.incomeTransactions().length === 0">
-              <span class="activity-empty-icon">📂</span>
-              <p>Aún no hay transacciones. Registra tu primer ingreso o gasto.</p>
-            </div>
-            <div class="activity-item" *ngFor="let tx of income.incomeTransactions()">
-              <div class="activity-icon income">↓</div>
-              <div class="activity-details">
-                <strong>{{ income.formatMoney(tx.amount) }}</strong>
-                <small *ngIf="tx.note">{{ tx.note }}</small>
-                <small *ngIf="!tx.note">{{ tx.date }}</small>
-              </div>
-              <span class="activity-amount income">{{ income.formatMoney(tx.amount) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sección de Análisis de Tendencias -->
-      <div class="card trend-analysis-card">
-        <div class="trend-content">
-          <div class="trend-icon-box">💡</div>
-          <div class="trend-text">
-            <h3>Análisis de Tendencias</h3>
-            <p>Comienza a registrar tus ingresos y gastos para ver análisis y tendencias de tu actividad financiera.</p>
+          <div class="progress-bar">
+            <div class="progress-fill dark-orange" [style.width.%]="variableIncomeProgress"></div>
           </div>
         </div>
       </div>
     </div>
-  </main>
 
-  <!-- Modal de Configuración de Ingresos -->
-  <app-income-settings *ngIf="showIncomeSettings" (close)="closeIncomeSettings()"></app-income-settings>
+    <!-- Tarjeta de Actividad Reciente -->
+    <div class="card activity-card">
+      <div class="card-header">
+        <span class="card-title">Actividad</span>
+        <a href="javascript:void(0)" class="view-all" (click)="viewAllActivity()">Ver todo</a>
+      </div>
+      <div class="activity-list">
+        <div class="activity-empty" *ngIf="!recentTxns.length">
+          <span class="activity-empty-icon">📂</span>
+          <p>Aún no hay transacciones. Registra tu primer ingreso o gasto.</p>
+        </div>
+        <div class="activity-item" *ngFor="let tx of recentTxns">
+          <div class="activity-icon" [class.income]="tx.type === 'ingreso'" [class.expense]="tx.type === 'egreso'">
+            {{ tx.type === 'ingreso' ? '↑' : '↓' }}
+          </div>
+          <div class="activity-details">
+            <strong>{{ income.formatMoney(tx.amount) }}</strong>
+            <small *ngIf="tx.type === 'egreso'">{{ tx.category || 'Egreso' }}</small>
+            <small *ngIf="tx.type === 'ingreso'">{{ tx.date }}</small>
+          </div>
+          <span class="activity-amount" [class.income]="tx.type === 'ingreso'" [class.expense]="tx.type === 'egreso'">
+            {{ tx.type === 'ingreso' ? '+' : '−' }}{{ income.formatMoney(tx.amount) }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <!-- Modal de Gestión de Metas y Fondos -->
-  <app-goals-settings *ngIf="showGoalsSettings" (close)="closeGoalsSettings()"></app-goals-settings>
+  <!-- Sección de Análisis de Tendencias -->
+  <div class="card trend-analysis-card">
+    <div class="trend-content">
+      <div class="trend-icon-box">📈</div>
+      <div class="trend-text">
+        <h3>Analiza tu comportamiento financiero</h3>
+        <p>Compara tus ingresos contra egresos por semana, mes o año y descubre en qué categorías se concentra tu dinero.</p>
+      </div>
+      <button class="trend-action" (click)="viewStatistics()">Ver estadísticas →</button>
+    </div>
+  </div>
 </div>
+
+<!-- Modal de Gestión de Metas y Fondos -->
+<app-goals-settings *ngIf="showGoalsSettings" (close)="closeGoalsSettings()"></app-goals-settings>

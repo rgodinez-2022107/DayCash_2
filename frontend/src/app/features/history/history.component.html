@@ -1,0 +1,117 @@
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <span class="section-tag">MOVIMIENTOS</span>
+      <h1>Historial</h1>
+      <p class="page-subtitle">Todos tus ingresos y egresos en un solo lugar.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="ghost-btn" (click)="exportCsv()" [disabled]="!filtered.length">
+        <span>⬇</span> Exportar CSV
+      </button>
+      <button class="ghost-btn danger" (click)="resetFilters()" [disabled]="!searchQuery && typeFilter === 'todos' && !categoryFilter && !dateFrom && !dateTo">
+        ✕ Restablecer
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters-card">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        name="search"
+        placeholder="Buscar por categoría, método, etiqueta o comentario..."
+        (ngModelChange)="currentPage = 1"
+      />
+    </div>
+
+    <div class="type-toggle">
+      <button [class.active]="typeFilter === 'todos'" (click)="setType('todos')">Todos</button>
+      <button [class.active]="typeFilter === 'ingreso'" (click)="setType('ingreso')">↑ Ingresos</button>
+      <button [class.active]="typeFilter === 'egreso'" (click)="setType('egreso')">↓ Egresos</button>
+    </div>
+
+    <div class="filter-group">
+      <label class="visually-hidden" for="hfCat">Categoría</label>
+      <select id="hfCat" [(ngModel)]="categoryFilter" name="fcat" (ngModelChange)="currentPage = 1">
+        <option value="">Todas las categorías</option>
+        <option *ngFor="let c of categories" [value]="c.key">{{ c.label }}</option>
+      </select>
+
+      <input type="date" [(ngModel)]="dateFrom" name="ffrom" title="Desde" (ngModelChange)="currentPage = 1" />
+      <span class="to-sep">→</span>
+      <input type="date" [(ngModel)]="dateTo" name="fto" title="Hasta" (ngModelChange)="currentPage = 1" />
+    </div>
+  </div>
+
+  <!-- Contador de resultados -->
+  <div class="result-count">
+    <strong>{{ filtered.length }}</strong> {{ filtered.length === 1 ? 'movimiento encontrado' : 'movimientos encontrados' }}
+    <ng-container *ngIf="pageCount > 1"> · Página {{ currentPage }} de {{ pageCount }}</ng-container>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-wrap">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Categoría</th>
+          <th>Método</th>
+          <th>Etiqueta</th>
+          <th>Comentario</th>
+          <th class="right">Monto</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let tx of pageItems">
+          <td class="date-cell">{{ tx.date }}</td>
+          <td>
+            <span class="badge" [class.ingreso]="tx.type === 'ingreso'" [class.egreso]="tx.type === 'egreso'">
+              {{ tx.type === 'ingreso' ? '↑' : '↓' }} {{ tx.type === 'ingreso' ? 'Ingreso' : 'Egreso' }}
+            </span>
+          </td>
+          <td>{{ tx.type === 'egreso' ? (categoryLabel(tx.category ?? '') || '—') : '—' }}</td>
+          <td>{{ tx.type === 'egreso' ? (paymentLabel(tx.paymentMethod ?? '') || '—') : '—' }}</td>
+          <td>
+            <span class="tx-label" *ngIf="tx.label">{{ txLabel(tx.label) }}</span>
+            <span class="dim" *ngIf="!tx.label">—</span>
+          </td>
+          <td class="note-cell" [title]="tx.note">{{ tx.note || '—' }}</td>
+          <td class="right amount" [class.income]="tx.type === 'ingreso'" [class.expense]="tx.type === 'egreso'">
+            {{ tx.type === 'ingreso' ? '+' : '−' }} {{ formatMoney(tx.amount) }}
+          </td>
+          <td class="right">
+            <button class="delete-btn" title="Eliminar" (click)="deleteTx(tx)">
+              🗑
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="table-empty" *ngIf="!pageItems.length">
+      <span>📭</span>
+      <p>No hay movimientos que coincidan con los filtros.</p>
+      <button class="ghost-btn" (click)="resetFilters()">Limpiar filtros</button>
+    </div>
+  </div>
+
+  <!-- Paginación -->
+  <div class="pagination" *ngIf="pageCount > 1">
+    <button class="page-btn" [disabled]="currentPage === 1" (click)="setPage(currentPage - 1)">‹</button>
+    <button
+      class="page-btn"
+      *ngFor="let p of pageNumbers"
+      [class.active]="p === currentPage"
+      (click)="setPage(p)"
+    >{{ p }}</button>
+    <button class="page-btn" [disabled]="currentPage === pageCount" (click)="setPage(currentPage + 1)">›</button>
+  </div>
+</div>
