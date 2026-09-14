@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
@@ -19,18 +18,24 @@ function requireEnv(name: string, fallback?: string): string {
 export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:4200',
-  jwt: {
+  db: {
+    host: process.env.PGHOST || 'localhost',
+    port: parseInt(process.env.PGPORT || '5432', 10),
+    database: requireEnv('PGDATABASE', 'daycash_db'),
+    user: requireEnv('PGUSER', 'postgres'),
+    password: requireEnv('PGPASSWORD', ''),
+  },
+jwt: {
     secret: requireEnv('JWT_SECRET', 'dev_secret_change_me'),
     expiresIn: process.env.JWT_EXPIRES_IN || '30m',
+  },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
   },
   admin: {
     email: requireEnv('ADMIN_EMAIL', 'admin@financeapp.com'),
     // La contraseña en texto plano se toma del .env y se convierte
-    // a hash en memoria al iniciar el servidor. Nunca se guarda
-    // ni se compara en texto plano.
-    passwordHash: bcrypt.hashSync(
-      requireEnv('ADMIN_PASSWORD', 'Admin123!'),
-      10
-    ),
+    // a hash (bcrypt) al momento de registrar el usuario en la BD.
+    password: requireEnv('ADMIN_PASSWORD', 'Admin123!'),
   },
 };

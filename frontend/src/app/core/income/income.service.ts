@@ -1,12 +1,18 @@
 import { Injectable, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { lastValueFrom } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface IncomeCategory {
+  id?: number;
   name: string;
   spent: number;
   budget: number;
 }
 
 export interface Goal {
+  id?: number;
+  type?: string;
   title: string;
   description: string;
   contribution: number;
@@ -14,13 +20,64 @@ export interface Goal {
 }
 
 export interface IncomeTransaction {
+  id?: number;
   amount: number;
   note: string;
   date: string;
 }
 
+export interface ExpenseTransaction {
+  id?: number;
+  amount: number;
+  category: string;
+  paymentMethod: string;
+  label: string;
+  note: string;
+  date: string;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+}
+
+interface MetaApi {
+  id: number;
+  tipo: string;
+  titulo: string;
+  descripcion: string | null;
+  contribution: string;
+  target: string;
+}
+
+interface CategoriaApi {
+  id: number;
+  nombre: string;
+  spent: string;
+  budget: string;
+}
+
+interface TransaccionApi {
+  id: number;
+  monto: string;
+  nota: string | null;
+  fecha: string;
+}
+
+interface EgresoApi {
+  id: number;
+  monto: string;
+  categoria: string;
+  metodo_pago: string;
+  etiqueta: string | null;
+  nota: string | null;
+  fecha: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class IncomeService {
+  private readonly apiUrl = `${environment.apiUrl}/data`;
+
   // Ingreso fijo mensual
   readonly fixedIncome = signal<number>(15000);
 
@@ -68,6 +125,142 @@ export class IncomeService {
   // Historial de transacciones de ingresos registradas (con comentario opcional)
   readonly incomeTransactions = signal<IncomeTransaction[]>([]);
 
+  // Historial de egresos (gastos) registrados
+  readonly expenseTransactions = signal<ExpenseTransaction[]>([]);
+
+  // Perfil del usuario cargado desde la API (email, nombre y foto)
+  readonly profile = signal<{ email: string; name: string | null; picture: string | null } | null>(null);
+
+  // Evita crear dos metas de ahorro/emergencia si se escribe rápido antes del response
+  private creatingGoal: 'savingsGoal' | 'emergencyGoal' | null = null;
+
+  // Una sola carga en vuelo compartida: el shell y el dashboard llaman a
+  // loadFromApi() casi al mismo tiempo y no debe duplicarse la petición.
+  private loadPromise: Promise<void> | null = null;
+
+  constructor(private http: HttpClient) {}
+
+  // ===== Carga inicial desde PostgreSQL (vía la API) =====
+  async loadFromApi(): Promise<void> {
+    if (this.loadPromise) return this.loadPromise;
+    this.loadPromise = this.doLoad().finally(() => {
+      this.loadPromise = null;
+    });
+    return this.loadPromise;
+  }
+
+  private async doLoad(): Promise<void> {
+    try {
+      const [metas, categorias, transacciones, usuario, egresos] = await Promise.all([
+        lastValueFrom(this.http.get<ApiResponse<MetaApi[]>>(`${this.apiUrl}/metas`)),
+        lastValueFrom(this.http.get<ApiResponse<CategoriaApi[]>>(`${this.apiUrl}/categorias`)),
+        lastValueFrom(this.http.get<ApiResponse<TransaccionApi[]>>(`${this.apiUrl}/transacciones`)),
+        lastValueFrom(this.http.get<ApiResponse<{ fixedIncome: number; variableHours: number; variableRate: number; email: string; name: string | null; picture: string | null }>>(`${this.apiUrl}/usuario`)),
+        lastValueFrom(this.http.get<ApiResponse<EgresoApi[]>>(`${this.apiUrl}/egresos`)),
+      ]);
+
+      // Metas: separar por tipo
+      const savings = metas.data.find((m) => m.tipo === 'ahorro');
+      const emergency = metas.data.find((m) => m.tipo === 'emergencia');
+      const custom = metas.data.filter((m) => m.tipo === 'personalizada');
+
+      if (savings) {
+        this.savingsGoal.set({
+          id: savings.id,
+          title: savings.titulo,
+          description: savings.descripcion ?? '',
+          contribution: Number(savings.contribution),
+          target: Number(savings.target),
+        });
+      }
+      if (emergency) {
+        this.emergencyGoal.set({
+          id: emergency.id,
+          title: emergency.titulo,
+          description: emergency.descripcion ?? '',
+          contribution: Number(emergency.contribution),
+          target: Number(emergency.target),
+        });
+      }
+      if (custom.length > 0) {
+        this.customGoals.set(
+          custom.map((m) => ({
+            id: m.id,
+            title: m.titulo,
+            description: m.descripcion ?? '',
+            contribution: Number(m.contribution),
+            target: Number(m.target),
+          }))
+        );
+      }
+
+      // Categorías
+      if (categorias.data.length > 0) {
+        this.budgetCategories.set(
+          categorias.data.map((c) => ({
+            id: c.id,
+            name: c.nombre,
+            spent: Number(c.spent),
+            budget: Number(c.budget),
+          }))
+        );
+      }
+
+      // Transacciones
+      this.incomeTransactions.set(
+        transacciones.data.map((t) => ({
+          id: t.id,
+          amount: Number(t.monto),
+          note: t.nota ?? '',
+          date: t.fecha,
+        }))
+      );
+
+      // Egresos
+      this.expenseTransactions.set(
+        egresos.data.map((e) => ({
+          id: e.id,
+          amount: Number(e.monto),
+          category: e.categoria,
+          paymentMethod: e.metodo_pago,
+          label: e.etiqueta ?? '',
+          note: e.nota ?? '',
+          date: e.fecha,
+        }))
+      );
+
+      // Config de ingresos y perfil del usuario
+      this.fixedIncome.set(usuario.data.fixedIncome);
+      this.variableHours.set(usuario.data.variableHours);
+      this.variableRate.set(usuario.data.variableRate);
+      this.profile.set({
+        email: usuario.data.email,
+        name: usuario.data.name,
+        picture: usuario.data.picture,
+      });
+    } catch (error) {
+      console.error('No se pudo cargar los datos desde el backend:', error);
+    }
+  }
+
+  // ===== Persistencia del usuario (ingresos) =====
+  async saveUserConfig(): Promise<void> {
+    try {
+      await lastValueFrom(
+        this.http.put<ApiResponse<{ fixedIncome: number; variableHours: number; variableRate: number }>>(
+          `${this.apiUrl}/usuario`,
+          {
+            fixedIncome: this.fixedIncome(),
+            variableHours: this.variableHours(),
+            variableRate: this.variableRate(),
+          }
+        )
+      );
+    } catch (error) {
+      console.error('No se pudo guardar la configuración de ingresos:', error);
+    }
+  }
+
   // Progresos derivados
   goalProgress(contribution: number, target: number): number {
     if (target <= 0) return 0;
@@ -86,43 +279,160 @@ export class IncomeService {
     return this.goalProgress(category.spent, category.budget);
   }
 
-  // Redefinir una meta completa (título, descripción, aporte y total)
-  updateGoal(signalName: 'savingsGoal' | 'emergencyGoal', patch: Partial<Goal>): void {
-    if (signalName === 'savingsGoal') {
-      this.savingsGoal.update((g) => ({ ...g, ...patch }));
-    } else {
-      this.emergencyGoal.update((g) => ({ ...g, ...patch }));
+  private async saveGoal(goal: Goal, tipo: string): Promise<number | undefined> {
+    const payload = {
+      tipo,
+      titulo: goal.title,
+      descripcion: goal.description,
+      contribution: goal.contribution,
+      target: goal.target,
+    };
+    try {
+      if (goal.id) {
+        const res = await lastValueFrom(
+          this.http.put<ApiResponse<MetaApi>>(`${this.apiUrl}/metas/${goal.id}`, payload)
+        );
+        return res.data.id;
+      }
+      const res = await lastValueFrom(
+        this.http.post<ApiResponse<MetaApi>>(`${this.apiUrl}/metas`, payload)
+      );
+      return res.data.id;
+    } catch (error) {
+      console.error('No se pudo guardar la meta:', error);
+      return undefined;
     }
   }
 
+  // Redefinir una meta completa (título, descripción, aporte y total)
+  updateGoal(signalName: 'savingsGoal' | 'emergencyGoal', patch: Partial<Goal>): void {
+    const tipo = signalName === 'savingsGoal' ? 'ahorro' : 'emergencia';
+    const goal = signalName === 'savingsGoal'
+      ? { ...this.savingsGoal(), ...patch }
+      : { ...this.emergencyGoal(), ...patch };
+
+    if (signalName === 'savingsGoal') {
+      this.savingsGoal.set(goal);
+    } else {
+      this.emergencyGoal.set(goal);
+    }
+
+    if (goal.id) {
+      // Ya existe en la BD → actualización
+      void this.saveGoal(goal, tipo).catch(() => undefined);
+      return;
+    }
+
+    // Aún no existe → crear una sola vez; si ya hay una creación en vuelo, solo refrescar la señal
+    if (this.creatingGoal === signalName) return;
+    this.creatingGoal = signalName;
+    void this.saveGoal(goal, tipo).then((id) => {
+      this.creatingGoal = null;
+      if (id !== undefined) {
+        goal.id = id;
+        if (signalName === 'savingsGoal') this.savingsGoal.set(goal);
+        else this.emergencyGoal.set(goal);
+      }
+    });
+  }
+
   // ===== Categorías de presupuesto dinámicas =====
-  addCategory(category: IncomeCategory): void {
+  async addCategory(category: IncomeCategory): Promise<void> {
     this.budgetCategories.update((list) => [...list, category]);
+    try {
+      const res = await lastValueFrom(
+        this.http.post<ApiResponse<CategoriaApi>>(`${this.apiUrl}/categorias`, {
+          nombre: category.name,
+          spent: category.spent,
+          budget: category.budget,
+        })
+      );
+      const c = res.data;
+      category.id = c.id;
+    } catch (error) {
+      console.error('No se pudo agregar la categoría:', error);
+    }
   }
 
-  updateCategory(index: number, patch: Partial<IncomeCategory>): void {
-    this.budgetCategories.update((list) =>
-      list.map((c, i) => (i === index ? { ...c, ...patch } : c))
-    );
+  async updateCategory(index: number, patch: Partial<IncomeCategory>): Promise<void> {
+    const list = this.budgetCategories();
+    const current = list[index];
+    if (!current) return;
+    this.budgetCategories.update((arr) => arr.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+    if (current.id === undefined) return;
+    try {
+      await lastValueFrom(
+        this.http.put<ApiResponse<CategoriaApi>>(`${this.apiUrl}/categorias/${current.id}`, {
+          nombre: patch.name,
+          spent: patch.spent,
+          budget: patch.budget,
+        })
+      );
+    } catch (error) {
+      console.error('No se pudo actualizar la categoría:', error);
+    }
   }
 
-  removeCategory(index: number): void {
+  async removeCategory(index: number): Promise<void> {
+    const current = this.budgetCategories()[index];
     this.budgetCategories.update((list) => list.filter((_, i) => i !== index));
+    if (!current?.id) return;
+    try {
+      await lastValueFrom(this.http.delete(`${this.apiUrl}/categorias/${current.id}`));
+    } catch (error) {
+      console.error('No se pudo eliminar la categoría:', error);
+    }
   }
 
   // ===== Metas personalizadas dinámicas =====
-  addCustomGoal(goal: Goal): void {
-    this.customGoals.update((list) => [...list, goal]);
+  async addCustomGoal(goal: Goal): Promise<void> {
+    try {
+      const res = await lastValueFrom(
+        this.http.post<ApiResponse<MetaApi>>(`${this.apiUrl}/metas`, {
+          tipo: 'personalizada',
+          titulo: goal.title,
+          descripcion: goal.description,
+          contribution: goal.contribution,
+          target: goal.target,
+        })
+      );
+      const m = res.data;
+      this.customGoals.update((list) => [...list, { ...goal, id: m.id }]);
+    } catch (error) {
+      console.error('No se pudo agregar la meta:', error);
+      this.customGoals.update((list) => [...list, goal]);
+    }
   }
 
-  updateCustomGoal(index: number, patch: Partial<Goal>): void {
-    this.customGoals.update((list) =>
-      list.map((g, i) => (i === index ? { ...g, ...patch } : g))
-    );
+  async updateCustomGoal(index: number, patch: Partial<Goal>): Promise<void> {
+    const list = this.customGoals();
+    const current = list[index];
+    if (!current) return;
+    this.customGoals.update((arr) => arr.map((g, i) => (i === index ? { ...g, ...patch } : g)));
+    if (current.id === undefined) return;
+    try {
+      await lastValueFrom(
+        this.http.put<ApiResponse<MetaApi>>(`${this.apiUrl}/metas/${current.id}`, {
+          titulo: patch.title,
+          descripcion: patch.description,
+          contribution: patch.contribution,
+          target: patch.target,
+        })
+      );
+    } catch (error) {
+      console.error('No se pudo actualizar la meta:', error);
+    }
   }
 
-  removeCustomGoal(index: number): void {
+  async removeCustomGoal(index: number): Promise<void> {
+    const current = this.customGoals()[index];
     this.customGoals.update((list) => list.filter((_, i) => i !== index));
+    if (!current?.id) return;
+    try {
+      await lastValueFrom(this.http.delete(`${this.apiUrl}/metas/${current.id}`));
+    } catch (error) {
+      console.error('No se pudo eliminar la meta:', error);
+    }
   }
 
   // Progreso de una meta personalizada
@@ -131,11 +441,28 @@ export class IncomeService {
   }
 
   // Registrar un ingreso y agregarlo al historial con su comentario
-  addIncomeTransaction(amount: number, note: string): void {
+  async addIncomeTransaction(amount: number, note: string): Promise<void> {
     const now = new Date();
     const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    this.incomeTransactions.update((list) => [{ amount, note, date }, ...list]);
+    const transaction: IncomeTransaction = { amount, note, date };
+    this.incomeTransactions.update((list) => [transaction, ...list]);
     this.incomeNote.set('');
+    this.saveUserConfig();
+    try {
+      const res = await lastValueFrom(
+        this.http.post<ApiResponse<TransaccionApi>>(`${this.apiUrl}/transacciones`, {
+          monto: amount,
+          nota: note,
+          fecha: date,
+        })
+      );
+      const t = res.data;
+      this.incomeTransactions.update((list) =>
+        list.map((item) => (item === transaction ? { ...item, id: t.id } : item))
+      );
+    } catch (error) {
+      console.error('No se pudo guardar la transacción:', error);
+    }
   }
 
   // Utilidad de formato moneda (Quetzales guatemaltecos)
@@ -145,5 +472,55 @@ export class IncomeService {
       currency: 'GTQ',
       minimumFractionDigits: 2,
     });
+  }
+
+  // Registrar un egreso y agregarlo al historial
+  async addEgreso(amount: number, category: string, paymentMethod: string, label: string, note: string): Promise<void> {
+    const now = new Date();
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const expense: ExpenseTransaction = { amount, category, paymentMethod, label, note, date };
+    this.expenseTransactions.update((list) => [expense, ...list]);
+    try {
+      const res = await lastValueFrom(
+        this.http.post<ApiResponse<EgresoApi>>(`${this.apiUrl}/egresos`, {
+          monto: amount,
+          categoria: category,
+          metodo_pago: paymentMethod,
+          etiqueta: label,
+          nota: note,
+          fecha: date,
+        })
+      );
+      const e = res.data;
+      this.expenseTransactions.update((list) =>
+        list.map((item) => (item === expense ? { ...item, id: e.id } : item))
+      );
+    } catch (error) {
+      console.error('No se pudo guardar el egreso:', error);
+    }
+  }
+
+  // Eliminar un egreso
+  async removeEgreso(index: number): Promise<void> {
+    const current = this.expenseTransactions()[index];
+    this.expenseTransactions.update((list) => list.filter((_, i) => i !== index));
+    if (!current?.id) return;
+    try {
+      await lastValueFrom(this.http.delete(`${this.apiUrl}/egresos/${current.id}`));
+    } catch (error) {
+      console.error('No se pudo eliminar el egreso:', error);
+    }
+  }
+
+  // Eliminar un ingreso del historial
+  async removeIncomeTransaction(index: number): Promise<void> {
+    const current = this.incomeTransactions()[index];
+    this.incomeTransactions.update((list) => list.filter((_, i) => i !== index));
+    if (!current?.id) return;
+    try {
+      await lastValueFrom(this.http.delete(`${this.apiUrl}/transacciones/${current.id}`));
+    } catch (error) {
+      console.error('No se pudo eliminar el ingreso:', error);
+    }
   }
 }

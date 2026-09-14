@@ -1,0 +1,96 @@
+<div class="dashboard-layout">
+  <!-- Fondo con ondas fluidas -->
+  <div class="ps3-waves-container">
+    <div class="wave wave-one"></div>
+    <div class="wave wave-two"></div>
+  </div>
+
+  <!-- Fondo de puntos con gradiente estático -->
+  <div class="interactive-dot-grid"></div>
+
+  <!-- Barra lateral -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="/logo/image.png" alt="Logo DayCash" class="brand-icon" />
+      <div class="brand-text">
+        <h2>DayCash</h2>
+        <span>Premium Finance</span>
+      </div>
+    </div>
+
+    <div class="sidebar-action">
+      <button class="add-transaction-btn" (click)="openAddTransaction()">
+        <span>+</span> Add Transaction
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a routerLink="/app/dashboard" class="nav-item" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        <span class="icon">📊</span> Dashboard
+      </a>
+      <a routerLink="/app/statistics" class="nav-item" routerLinkActive="active">
+        <span class="icon">📈</span> Statistics
+      </a>
+      <a routerLink="/app/history" class="nav-item" routerLinkActive="active">
+        <span class="icon">🕒</span> History
+      </a>
+      <a routerLink="/app/settings" class="nav-item" routerLinkActive="active">
+        <span class="icon">⚙️</span> Settings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="avatar">
+          <img *ngIf="avatarPicture" [src]="avatarPicture" [alt]="displayName" />
+          <span *ngIf="!avatarPicture">{{ initials }}</span>
+        </div>
+        <div class="user-info">
+          <span class="name">{{ displayName }}</span>
+          <span class="role">Pro Member</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Contenido principal -->
+  <main class="main-content">
+    <header class="top-bar">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          placeholder="Search transactions, insights..."
+          [(ngModel)]="searchQuery"
+          (keyup.enter)="onSearchEnter()"
+        />
+      </div>
+      <div class="top-actions">
+        <div class="notifications-wrap">
+          <button class="icon-btn" (click)="toggleNotifications()" title="Notificaciones">🔔</button>
+          <div class="notifications-dropdown" *ngIf="showNotifications">
+            <div class="notif-header">Notificaciones</div>
+            <div class="notif-item" *ngFor="let e of antExpenses">
+              <div class="notif-dot"></div>
+              <div>
+                <strong>{{ income.formatMoney(e.amount) }}</strong>
+                <small>{{ e.category }} &middot; {{ e.note || e.date }}</small>
+              </div>
+            </div>
+            <div class="notif-empty" *ngIf="!antExpenses.length">
+              {{ antAlertsEnabled ? 'Sin gastos hormiga registrados. ✅' : 'Alertas de gastos hormiga desactivadas.' }}
+            </div>
+          </div>
+        </div>
+        <button class="icon-btn logout-action" (click)="logout()" title="Cerrar sesión">🚪</button>
+      </div>
+    </header>
+
+    <div class="page-scroll" #pageScroll>
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+
+  <!-- Modal global para registrar movimientos -->
+  <app-add-transaction></app-add-transaction>
+</div>

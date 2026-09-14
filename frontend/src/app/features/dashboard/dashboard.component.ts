@@ -1,43 +1,36 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { IncomeService } from '../../core/income/income.service';
-import { IncomeSettingsComponent } from '../../shared/income-settings/income-settings.component';
+import { TransactionModalService } from '../../core/transaction-modal/transaction-modal.service';
 import { GoalsSettingsComponent } from '../../shared/goals-settings/goals-settings.component';
+import { buildTransactions } from '../../core/income/transaction.model';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, IncomeSettingsComponent, GoalsSettingsComponent],
+  imports: [CommonModule, GoalsSettingsComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
 })
-export class DashboardComponent {
-  userEmail: string | null;
-  userName: string = 'Usuario';
-
-  showIncomeSettings = false;
+export class DashboardComponent implements OnInit {
   showGoalsSettings = false;
-  balanceTrend: string = '+0.0%';
 
   constructor(
-    private authService: AuthService,
-    private router: Router,
-    public income: IncomeService
-  ) {
-    this.userEmail = this.authService.getCurrentUserEmail();
-    if (this.userEmail) {
-      this.userName = this.userEmail.split('@')[0];
-    }
+    public auth: AuthService,
+    public income: IncomeService,
+    private modal: TransactionModalService,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    // Carga metas, categorías, transacciones e ingresos desde PostgreSQL
+    this.income.loadFromApi();
   }
 
-  @HostListener('window:mousemove', ['$event'])
-  onMouseMove(event: MouseEvent) {
-    const x = event.clientX;
-    const y = event.clientY;
-    document.documentElement.style.setProperty('--mouse-x', `${x}px`);
-    document.documentElement.style.setProperty('--mouse-y', `${y}px`);
+  get userName(): string {
+    return this.auth.currentUser()?.name || this.auth.getCurrentUserEmail()?.split('@')[0] || 'Usuario';
   }
 
   get totalBalance(): string {
@@ -51,16 +44,30 @@ export class DashboardComponent {
 
   get variableIncomeProgress(): number {
     if (this.income.monthlyTotal <= 0) return 0;
-    const variableShare = (this.income.variableSubtotal / this.income.monthlyTotal) * 100;
-    return Math.round(variableShare);
+    return Math.round((this.income.variableSubtotal / this.income.monthlyTotal) * 100);
   }
 
-  openIncomeSettings(): void {
-    this.showIncomeSettings = true;
+  get totalExpenses(): number {
+    return this.income.expenseTransactions().reduce((sum, tx) => sum + tx.amount, 0);
   }
 
-  closeIncomeSettings(): void {
-    this.showIncomeSettings = false;
+  get netBalance(): number {
+    return this.income.monthlyTotal - this.totalExpenses;
+  }
+
+  get recentTxns() {
+    return buildTransactions(
+      this.income.incomeTransactions(),
+      this.income.expenseTransactions()
+    ).slice(0, 6);
+  }
+
+  openNewIncome(): void {
+    this.modal.open('ingreso');
+  }
+
+  openNewExpense(): void {
+    this.modal.open('egreso');
   }
 
   openGoalsSettings(): void {
@@ -71,12 +78,11 @@ export class DashboardComponent {
     this.showGoalsSettings = false;
   }
 
-  addTransaction(): void {
-    console.log('Abrir modal de nueva transacción');
+  viewAllActivity(): void {
+    this.router.navigate(['/app/history']);
   }
 
-  logout(): void {
-    this.authService.logout();
-    this.router.navigate(['/']);
+  viewStatistics(): void {
+    this.router.navigate(['/app/statistics']);
   }
 }

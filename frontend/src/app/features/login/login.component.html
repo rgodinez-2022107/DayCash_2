@@ -1,7 +1,6 @@
 <div class="login-page">
-  <!-- Fondo de Puntos con Animación Flotante e Interactividad -->
+  <!-- Fondo de Puntos Estático -->
   <div class="interactive-dot-grid"></div>
-  <div class="interactive-dot-glow"></div>
 
   <!-- Fondo con la Ola Original del Login -->
   <div class="login-waves-container">
@@ -69,6 +68,19 @@
         <span *ngIf="isLoading" class="spinner"></span>
       </button>
     </form>
+
+    <!-- Separador -->
+    <div class="social-divider">
+      <span>o continúa con</span>
+    </div>
+
+    <!-- Google Sign-In -->
+    <div class="google-btn-container">
+      <div id="google-button" class="google-button-placeholder"></div>
+      <div id="google-signin-error" class="server-error" *ngIf="googleErrorMessage">
+        {{ googleErrorMessage }}
+      </div>
+    </div>
 
     <p class="footer-note">Acceso restringido a personal autorizado.</p>
   </div>
